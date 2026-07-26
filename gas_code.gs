@@ -1,6 +1,6 @@
 // ================================================================
 // 大溪國中校內會議(含活動)行事曆 - Google Apps Script 後端
-// 版本：2.0（全 GET 模式，無 CORS 問題）
+// 版本：2.3（強化日期與時間字串格式化，避免 Google Sheets 自動轉 Date 物件）
 // ================================================================
 
 var SHEET_NAME = '會議資料';
@@ -39,6 +39,40 @@ function getSheet() {
   return sheet;
 }
 
+// ── 格式化日期與時間 ──────────────────────────────────────────────
+function formatDate(val) {
+  if (!val) return '';
+  if (val instanceof Date) {
+    return Utilities.formatDate(val, 'Asia/Taipei', 'yyyy-MM-dd');
+  }
+  var str = String(val).trim();
+  if (str.match(/^\d{4}-\d{2}-\d{2}$/)) return str;
+  var cleanStr = str.replace(/\s*\([^)]*\)\s*$/, '');
+  var d = new Date(cleanStr);
+  if (!isNaN(d.getTime())) {
+    return Utilities.formatDate(d, 'Asia/Taipei', 'yyyy-MM-dd');
+  }
+  return str;
+}
+
+function formatTime(val) {
+  if (!val) return '';
+  if (val instanceof Date) {
+    return Utilities.formatDate(val, 'Asia/Taipei', 'HH:mm');
+  }
+  var str = String(val).trim();
+  if (str.match(/^\d{1,2}:\d{2}$/)) {
+    var parts = str.split(':');
+    return ('0' + parts[0]).slice(-2) + ':' + ('0' + parts[1]).slice(-2);
+  }
+  var cleanStr = str.replace(/\s*\([^)]*\)\s*$/, '');
+  var d = new Date(cleanStr);
+  if (!isNaN(d.getTime())) {
+    return Utilities.formatDate(d, 'Asia/Taipei', 'HH:mm');
+  }
+  return str;
+}
+
 // ── SHA-256 密碼雜湊 ──────────────────────────────────────────────
 function hashPassword(password) {
   var raw = Utilities.computeDigest(
@@ -67,10 +101,11 @@ function jsonResponse(data) {
 // ── 主入口：全部走 doGet，避免 CORS preflight ─────────────────────
 function doGet(e) {
   try {
-    var action = (e.parameter.action || 'list').toLowerCase();
+    var params = (e && e.parameter) ? e.parameter : {};
+    var action = (params.action || 'list').toLowerCase();
     var data   = {};
-    if (e.parameter.data) {
-      data = JSON.parse(e.parameter.data);
+    if (params.data) {
+      data = JSON.parse(params.data);
     }
 
     if (action === 'list')   return listEvents();
@@ -96,14 +131,13 @@ function listEvents() {
     result.push({
       id:          String(r[0]),
       title:       String(r[1]),
-      date:        String(r[2]),
-      startTime:   String(r[3]),
-      endTime:     String(r[4]),
+      date:        formatDate(r[2]),
+      startTime:   formatTime(r[3]),
+      endTime:     formatTime(r[4]),
       location:    String(r[5]),
       organizer:   String(r[6]),
       category:    String(r[7] || ''),
       description: String(r[8] || ''),
-      // pwHash 不回傳給前端（安全）
       createdAt:   String(r[10] || '')
     });
   }
@@ -118,14 +152,18 @@ function addEvent(data) {
       return jsonResponse({ success: false, error: '請填寫所有必填欄位' });
     }
   }
-  if (t2m(data.endTime) <= t2m(data.startTime)) {
+  var cleanDate  = formatDate(data.date);
+  var cleanStart = formatTime(data.startTime);
+  var cleanEnd   = formatTime(data.endTime);
+
+  if (t2m(cleanEnd) <= t2m(cleanStart)) {
     return jsonResponse({ success: false, error: '結束時間必須晚於開始時間' });
   }
 
   var sheet = getSheet();
 
   // 衝突偵測
-  var conflict = checkConflict(sheet, data.date, data.startTime, data.endTime, data.location, null);
+  var conflict = checkConflict(sheet, cleanDate, cleanStart, cleanEnd, data.location, null);
   if (conflict) {
     return jsonResponse({
       success:  false,
@@ -143,9 +181,9 @@ function addEvent(data) {
   sheet.appendRow([
     id,
     data.title,
-    data.date,
-    data.startTime,
-    data.endTime,
+    "'" + cleanDate,
+    "'" + cleanStart,
+    "'" + cleanEnd,
     data.location,
     data.organizer,
     data.category    || '',
@@ -189,12 +227,14 @@ function checkConflict(sheet, date, startTime, endTime, location, excludeId) {
     var r = rows[i];
     if (!r[0]) continue;
     if (excludeId && String(r[0]) === String(excludeId)) continue;
-    if (String(r[2]) === String(date) &&
-        String(r[5]).trim() === String(location).trim()) {
-      var exStart = t2m(r[3]);
-      var exEnd   = t2m(r[4]);
+
+    var rowDate = formatDate(r[2]);
+    var rowLoc  = String(r[5]).trim();
+    if (rowDate === date && rowLoc === String(location).trim()) {
+      var exStart = t2m(formatTime(r[3]));
+      var exEnd   = t2m(formatTime(r[4]));
       if (newStart < exEnd && newEnd > exStart) {
-        return { title: String(r[1]), startTime: String(r[3]), endTime: String(r[4]) };
+        return { title: String(r[1]), startTime: formatTime(r[3]), endTime: formatTime(r[4]) };
       }
     }
   }

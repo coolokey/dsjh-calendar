@@ -233,12 +233,43 @@ async function gasCall(action, data){
   return r.json();
 }
 
+function normalizeDate(dStr){
+  if(!dStr) return '';
+  if(dStr.match(/^\d{4}-\d{2}-\d{2}$/)) return dStr;
+  const clean = dStr.replace(/\s*\([^)]*\)\s*$/, '');
+  const dt = new Date(clean);
+  if(!isNaN(dt.getTime())){
+    return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+  }
+  return dStr;
+}
+
+function normalizeTime(tStr){
+  if(!tStr) return '';
+  if(tStr.match(/^\d{1,2}:\d{2}$/)){
+    const [h,m] = tStr.split(':');
+    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+  }
+  const clean = tStr.replace(/\s*\([^)]*\)\s*$/, '');
+  const dt = new Date(clean);
+  if(!isNaN(dt.getTime())){
+    return String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0');
+  }
+  return tStr;
+}
+
 // 載入所有會議
 async function fetchEvents(){
   try{
     const d=await gasCall('list');
-    if(d.success) events=d.events;
-    else toast('載入失敗：'+d.error,'error');
+    if(d.success) {
+      events = (d.events || []).map(e => ({
+        ...e,
+        date: normalizeDate(e.date),
+        startTime: normalizeTime(e.startTime),
+        endTime: normalizeTime(e.endTime)
+      }));
+    } else toast('載入失敗：'+d.error,'error');
   }catch(e){
     toast('載入失敗：'+e.message,'error');
   }
