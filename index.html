@@ -422,22 +422,7 @@ async function submitAdd(){
       await fetchEvents();render();
     }else{toast('新增失敗：'+(res.error||'未知錯誤'),'error');}
   }catch(e){
-    // Demo mode: add locally
-    const newEv={
-      id:'local_'+Date.now(),
-      title:document.getElementById('f-title').value.trim(),
-      date:document.getElementById('f-date').value,
-      startTime:document.getElementById('f-start').value,
-      endTime:document.getElementById('f-end').value,
-      location:document.getElementById('f-location').value.trim(),
-      organizer:document.getElementById('f-organizer').value.trim(),
-      category:document.getElementById('f-category').value.trim(),
-      description:document.getElementById('f-desc').value.trim(),
-      createdAt:new Date().toLocaleString('zh-TW')
-    };
-    events.push(newEv);
-    toast('✅ 已在本機新增（示範模式）','success');
-    closeModal('modal-add');clearAddForm();render();
+    toast('❌ 連線失敗：請先設定 GAS_URL 後再使用新增功能','error');
   }
   btn.disabled=false;btn.textContent='確認新增';
 }
@@ -467,10 +452,7 @@ async function confirmDelete(){
       await fetchEvents();render();
     }else{showDelErr(res.error||'刪除失敗');}
   }catch(e){
-    // Demo mode: delete locally
-    const idx=events.findIndex(ev=>ev.id===selEvent.id);
-    if(idx>-1){events.splice(idx,1);}
-    toast('✅ 已刪除（示範模式）','success');closeModal('modal-delete');selEvent=null;render();
+    showDelErr('❌ 連線失敗：請先設定 GAS_URL 後再使用刪除功能');
   }
   btn.disabled=false;btn.textContent='確認刪除';
 }
