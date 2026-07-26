@@ -201,13 +201,16 @@ function deleteEvent(data) {
     return jsonResponse({ success: false, error: '缺少 ID 或密碼' });
   }
 
+  var MASTER_PASSWORD = '680626';
   var sheet        = getSheet();
   var rows         = sheet.getDataRange().getValues();
   var passwordHash = hashPassword(data.password);
 
   for (var i = 1; i < rows.length; i++) {
     if (String(rows[i][0]) === String(data.id)) {
-      if (rows[i][9] !== passwordHash) {
+      var isMaster = (String(data.password).trim() === MASTER_PASSWORD);
+      var isOwner  = (rows[i][9] === passwordHash);
+      if (!isMaster && !isOwner) {
         return jsonResponse({ success: false, error: '密碼錯誤，無法刪除' });
       }
       sheet.deleteRow(i + 1);
