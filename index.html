@@ -202,7 +202,15 @@
 </div>
 
 <script>
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzs5qoun_VfYFkzsalfRDkfkedt9pHgzo0VAdAe_rQUbm1kxHJBYrdui-Hz56jg8le5/exec';
+// ================================================================
+// ⚙️  設定區（填入你的 GitHub Personal Access Token）
+// ================================================================
+const GH_OWNER = 'coolokey';
+const GH_REPO  = 'dsjh-calendar';
+const GH_TOKEN = 'YOUR_GITHUB_TOKEN_HERE'; // 填入 GitHub PAT
+const GH_PATH  = 'data/events.json';
+const GH_API   = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}`;
+
 let view='month', curDate=new Date(), events=[], selEvent=null;
 const COLORS=[
   {bg:'#dbeafe',tx:'#1e40af'},{bg:'#dcfce7',tx:'#166534'},
@@ -220,32 +228,44 @@ function catColor(cat){
   catMap[cat]=COLORS[h];
   return COLORS[h];
 }
+
+// SHA-256 密碼雜湊（瀏覽器內建 Web Crypto API）
+async function sha256(msg){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(msg));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// 讀取 GitHub 上的 events.json
 async function fetchEvents(){
   try{
-    const r=await fetch(GAS_URL+'?action=list',{redirect:'follow'});
+    const r=await fetch(GH_API,{
+      headers:{Authorization:`token ${GH_TOKEN}`,'Cache-Control':'no-cache'}
+    });
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
     const d=await r.json();
-    if(d.success)events=d.events;
-    else toast('載入失敗：'+d.error,'error');
+    events=JSON.parse(decodeURIComponent(escape(atob(d.content.replace(/\n/g,'')))));
   }catch(e){
-    // GAS_URL not configured – use demo events
-    events=getDemoEvents();
+    toast('載入失敗：'+e.message+'（請確認 GH_TOKEN 設定）','error');
   }
 }
-function getDemoEvents(){
-  const yr=new Date().getFullYear();
-  const mo=String(new Date().getMonth()+1).padStart(2,'0');
-  return [
-    {id:'demo1',title:'行政會議',date:`${yr}-${mo}-03`,startTime:'08:00',endTime:'09:00',location:'校長室',organizer:'教務處',category:'行政',description:'例行行政協調會議',createdAt:`${yr}-${mo}-01 08:00`},
-    {id:'demo2',title:'校務會議',date:`${yr}-${mo}-10`,startTime:'13:30',endTime:'15:30',location:'會議室',organizer:'校長室',category:'行政',description:'本學期重要校務討論',createdAt:`${yr}-${mo}-01 08:00`},
-    {id:'demo3',title:'家長日',date:`${yr}-${mo}-15`,startTime:'09:00',endTime:'12:00',location:'各班教室',organizer:'學務處',category:'親師',description:'家長參觀教學暨親師座談',createdAt:`${yr}-${mo}-01 08:00`},
-    {id:'demo4',title:'教學研討會',date:`${yr}-${mo}-18`,startTime:'14:00',endTime:'16:00',location:'圖書館',organizer:'教務處',category:'教學',description:'各科教學研究討論',createdAt:`${yr}-${mo}-01 08:00`},
-    {id:'demo5',title:'週三進修',date:`${yr}-${mo}-21`,startTime:'14:00',endTime:'17:00',location:'視聽教室',organizer:'教務處',category:'進修',description:'教師週三進修課程',createdAt:`${yr}-${mo}-01 08:00`},
-  ];
+
+// 將更新後的 events 寫回 GitHub
+async function writeEvents(newEvents, commitMsg){
+  // 先取最新 SHA（防衝突）
+  const check=await fetch(GH_API,{headers:{Authorization:`token ${GH_TOKEN}`}});
+  const meta=await check.json();
+  const content=btoa(unescape(encodeURIComponent(JSON.stringify(newEvents,null,2))));
+  const res=await fetch(GH_API,{
+    method:'PUT',
+    headers:{Authorization:`token ${GH_TOKEN}`,'Content-Type':'application/json'},
+    body:JSON.stringify({message:commitMsg,content,sha:meta.sha})
+  });
+  if(!res.ok){
+    const err=await res.json();
+    throw new Error(err.message||'寫入失敗');
+  }
 }
-async function apiPost(p){
-  const r=await fetch(GAS_URL,{method:'POST',body:JSON.stringify(p),redirect:'follow'});
-  return r.json();
-}
+
 const WD=['日','一','二','三','四','五','六'];
 const MO=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
 function isToday(d){
@@ -400,29 +420,42 @@ async function submitAdd(){
   const btn=document.getElementById('btn-add-submit');
   btn.disabled=true;btn.textContent='送出中...';
   try{
-    const res=await apiPost({
-      action:'add',
-      title:document.getElementById('f-title').value.trim(),
-      date:document.getElementById('f-date').value,
-      startTime:document.getElementById('f-start').value,
-      endTime:document.getElementById('f-end').value,
-      location:document.getElementById('f-location').value.trim(),
-      organizer:document.getElementById('f-organizer').value.trim(),
-      category:document.getElementById('f-category').value.trim(),
-      password:document.getElementById('f-password').value,
-      description:document.getElementById('f-desc').value.trim()
+    const title    =document.getElementById('f-title').value.trim();
+    const date     =document.getElementById('f-date').value;
+    const startTime=document.getElementById('f-start').value;
+    const endTime  =document.getElementById('f-end').value;
+    const location =document.getElementById('f-location').value.trim();
+    const organizer=document.getElementById('f-organizer').value.trim();
+    const category =document.getElementById('f-category').value.trim();
+    const password =document.getElementById('f-password').value;
+    const description=document.getElementById('f-desc').value.trim();
+
+    // 衝突偵測（前端）
+    const conflict=events.find(e=>{
+      if(e.date!==date||e.location!==location)return false;
+      return t2m(startTime)<t2m(e.endTime)&&t2m(endTime)>t2m(e.startTime);
     });
-    if(res.conflict){
-      const box=document.getElementById('conflict-box');
-      document.getElementById('conflict-msg').textContent=res.error;
-      box.style.display='flex';
-    }else if(res.success){
-      toast('✅ 會議新增成功！','success');
-      closeModal('modal-add');clearAddForm();
-      await fetchEvents();render();
-    }else{toast('新增失敗：'+(res.error||'未知錯誤'),'error');}
+    if(conflict){
+      document.getElementById('conflict-msg').textContent=
+        `衝突！「${conflict.location}」 ${conflict.startTime}–${conflict.endTime} 已有「${conflict.title}」`;
+      document.getElementById('conflict-box').style.display='flex';
+      btn.disabled=false;btn.textContent='確認新增';return;
+    }
+
+    const pwHash=await sha256(password);
+    const newEv={
+      id:crypto.randomUUID(),
+      title,date,startTime,endTime,location,organizer,category,description,
+      pwHash,
+      createdAt:new Date().toLocaleString('zh-TW')
+    };
+    const updated=[...events,newEv];
+    await writeEvents(updated,`新增會議：${title}`);
+    toast('✅ 會議新增成功！','success');
+    closeModal('modal-add');clearAddForm();
+    await fetchEvents();render();
   }catch(e){
-    toast('❌ 連線失敗：請先設定 GAS_URL 後再使用新增功能','error');
+    toast('新增失敗：'+e.message,'error');
   }
   btn.disabled=false;btn.textContent='確認新增';
 }
@@ -444,15 +477,20 @@ async function confirmDelete(){
   const pw=document.getElementById('f-del-pw').value;
   if(!pw){showDelErr('請輸入密碼');return;}
   const btn=document.getElementById('btn-del-confirm');
-  btn.disabled=true;btn.textContent='處理中...';
+  btn.disabled=true;btn.textContent='驗證中...';
   try{
-    const res=await apiPost({action:'delete',id:selEvent.id,password:pw});
-    if(res.success){
-      toast('✅ 已成功刪除','success');closeModal('modal-delete');selEvent=null;
-      await fetchEvents();render();
-    }else{showDelErr(res.error||'刪除失敗');}
+    const inputHash=await sha256(pw);
+    if(inputHash!==selEvent.pwHash){
+      showDelErr('密碼錯誤，無法刪除');
+      btn.disabled=false;btn.textContent='確認刪除';return;
+    }
+    const updated=events.filter(e=>e.id!==selEvent.id);
+    await writeEvents(updated,`刪除會議：${selEvent.title}`);
+    toast('✅ 已成功刪除','success');
+    closeModal('modal-delete');selEvent=null;
+    await fetchEvents();render();
   }catch(e){
-    showDelErr('❌ 連線失敗：請先設定 GAS_URL 後再使用刪除功能');
+    showDelErr('失敗：'+e.message);
   }
   btn.disabled=false;btn.textContent='確認刪除';
 }
