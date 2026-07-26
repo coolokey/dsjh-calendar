@@ -170,7 +170,26 @@
         <div class="form-group"><label>開始時間 <span class="req">*</span></label><input type="time" id="f-start"></div>
         <div class="form-group"><label>結束時間 <span class="req">*</span></label><input type="time" id="f-end"></div>
         <div class="form-group full"><label>主辦單位 / 部門 <span class="req">*</span></label><input type="text" id="f-organizer" placeholder="如：教務處、總務處、學務處" maxlength="60"></div>
-        <div class="form-group"><label>分類（選填）</label><input type="text" id="f-category" placeholder="如：行政、教學、親師" maxlength="30"><div class="field-hint">同分類自動配色顯示</div></div>
+        <div class="form-group full">
+          <label>分類與自訂配色（選填）</label>
+          <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">
+            <input type="text" id="f-category" placeholder="如：行政、教學、親師" maxlength="30" style="flex:1" oninput="updateColorPreview()">
+            <div style="display:flex;align-items:center;gap:4px">
+              <label style="font-size:.73rem;margin:0;white-space:nowrap">底色</label>
+              <input type="color" id="f-cat-bg" value="#dbeafe" style="width:38px;height:38px;padding:2px;cursor:pointer;border-radius:6px;border:1px solid var(--border)" onchange="markUserPicked();updateColorPreview()" oninput="updateColorPreview()">
+            </div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <label style="font-size:.73rem;margin:0;white-space:nowrap">字色</label>
+              <input type="color" id="f-cat-tx" value="#1e40af" style="width:38px;height:38px;padding:2px;cursor:pointer;border-radius:6px;border:1px solid var(--border)" onchange="markUserPicked();updateColorPreview()" oninput="updateColorPreview()">
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--text-light);background:var(--bg);padding:6px 12px;border-radius:6px">
+            即時配色預覽：
+            <span id="color-preview-pill" class="cat-tag" style="background:#dbeafe;color:#1e40af;font-weight:600;padding:3px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:5px">
+              <span class="cat-dot" style="width:7px;height:7px;border-radius:50%;background:#1e40af"></span><span id="preview-text">行政</span>
+            </span>
+          </div>
+        </div>
         <div class="form-group"><label>刪除密碼 <span class="req">*</span></label><input type="password" id="f-password" placeholder="設定此筆資料的密碼" maxlength="50"><div class="field-hint">&#9888; 請牢記，忘記後無法刪除</div></div>
         <div class="form-group full"><label>說明備註（選填）</label><textarea id="f-desc" placeholder="詳細說明、注意事項等" rows="3"></textarea></div>
       </div>
@@ -216,13 +235,40 @@ const COLORS=[
   {bg:'#fff1f2',tx:'#9f1239'},{bg:'#f0fdf4',tx:'#14532d'}
 ];
 const catMap={};
-function catColor(cat){
-  if(!cat)return COLORS[0];
-  if(catMap[cat])return catMap[cat];
+function catColor(cat, ev){
+  if(ev && ev.catBg && ev.catTx) return {bg: ev.catBg, tx: ev.catTx};
+  if(!cat) return COLORS[0];
+  if(catMap[cat]) return catMap[cat];
   let h=0;
   for(let i=0;i<cat.length;i++)h=(h*31+cat.charCodeAt(i))%COLORS.length;
   catMap[cat]=COLORS[h];
   return COLORS[h];
+}
+
+function markUserPicked(){
+  document.getElementById('f-cat-bg').dataset.userPicked = '1';
+}
+
+function updateColorPreview(){
+  const cat = document.getElementById('f-category').value.trim();
+  const bgInput = document.getElementById('f-cat-bg');
+  const txInput = document.getElementById('f-cat-tx');
+  if(cat && !bgInput.dataset.userPicked){
+    const preset = catColor(cat);
+    bgInput.value = preset.bg;
+    txInput.value = preset.tx;
+  }
+  const bg = bgInput.value;
+  const tx = txInput.value;
+  const pill = document.getElementById('color-preview-pill');
+  const txt = document.getElementById('preview-text');
+  if(pill){
+    pill.style.background = bg;
+    pill.style.color = tx;
+    const dot = pill.querySelector('.cat-dot');
+    if(dot) dot.style.background = tx;
+  }
+  if(txt) txt.textContent = cat || '行政';
 }
 
 // 用 GET 呼叫 GAS（避免 CORS preflight 問題）
@@ -338,7 +384,7 @@ function dayCell(dt,other){
   const cls=['day-cell',other?'other-month':'',isToday(dt)?'today':'',dt.getDay()===0?'sun':dt.getDay()===6?'sat':''].filter(Boolean).join(' ');
   let ep='';
   ev.slice(0,3).forEach(e=>{
-    const col=catColor(e.category);
+    const col=catColor(e.category, e);
     ep+=`<div class="event-pill" style="background:${col.bg};color:${col.tx}" onclick="event.stopPropagation();showDetail('${e.id}')" title="${e.title}">${e.startTime} ${e.title}</div>`;
   });
   if(ev.length>3)ep+=`<div class="more-events">+${ev.length-3} 筆</div>`;
@@ -364,7 +410,7 @@ function renderWeek(c){
     ev.forEach(e=>{
       const sm=t2m(e.startTime),em=t2m(e.endTime);
       if(em<=SH*60||sm>=EH*60)return;
-      const top=Math.max(sm,SH*60)-SH*60,ht=Math.min(em,EH*60)-Math.max(sm,SH*60),col=catColor(e.category);
+      const top=Math.max(sm,SH*60)-SH*60,ht=Math.min(em,EH*60)-Math.max(sm,SH*60),col=catColor(e.category, e);
       evh+=`<div class="week-event" style="top:${top}px;height:${Math.max(ht,18)}px;background:${col.bg};color:${col.tx};border-left:3px solid ${col.tx}" onclick="showDetail('${e.id}')">${e.startTime} ${e.title}</div>`;
     });
     dc+=`<div class="day-col"><div style="position:relative">${sl}${evh}</div></div>`;
@@ -384,7 +430,7 @@ function renderDay(c){
   ev.forEach(e=>{
     const sm=t2m(e.startTime),em=t2m(e.endTime);
     if(em<=SH*60||sm>=EH*60)return;
-    const top=Math.max(sm,SH*60)-SH*60,ht=Math.min(em,EH*60)-Math.max(sm,SH*60),col=catColor(e.category);
+    const top=Math.max(sm,SH*60)-SH*60,ht=Math.min(em,EH*60)-Math.max(sm,SH*60),col=catColor(e.category, e);
     evh+=`<div class="day-event" style="top:${top}px;height:${Math.max(ht,36)}px;background:${col.bg};color:${col.tx};border-left:4px solid ${col.tx}" onclick="showDetail('${e.id}')"><div class="ev-title">${e.title}</div><div class="ev-sub">&#9200; ${e.startTime}&ndash;${e.endTime}&emsp;&#128205; ${e.location}</div></div>`;
   });
   if(!evh)evh='<div class="no-events">&#128219; 今天沒有會議或活動</div>';
@@ -396,7 +442,7 @@ function showDetail(id){
   const ev=events.find(e=>e.id===id);
   if(!ev)return;
   selEvent=ev;
-  const col=catColor(ev.category);
+  const col=catColor(ev.category, ev);
   document.getElementById('detail-hdr').style.background=`linear-gradient(135deg,${col.tx}ee,${col.tx}99)`;
   document.getElementById('detail-title').textContent=ev.title;
   const catHtml=ev.category
@@ -439,6 +485,9 @@ async function submitAdd(){
     const password =document.getElementById('f-password').value;
     const description=document.getElementById('f-desc').value.trim();
 
+    const catBg    =document.getElementById('f-cat-bg').value;
+    const catTx    =document.getElementById('f-cat-tx').value;
+
     // 衝突偵測（前端屐選，後端 GAS 也會再檢查一次）
     const conflict=events.find(e=>{
       if(e.date!==date||e.location!==location)return false;
@@ -451,7 +500,7 @@ async function submitAdd(){
       btn.disabled=false;btn.textContent='確認新增';return;
     }
 
-    const res=await gasCall('add',{title,date,startTime,endTime,location,organizer,category,password,description});
+    const res=await gasCall('add',{title,date,startTime,endTime,location,organizer,category,password,description,catBg,catTx});
     if(res.conflict){
       document.getElementById('conflict-msg').textContent=res.error;
       document.getElementById('conflict-box').style.display='flex';
@@ -471,6 +520,11 @@ function clearAddForm(){
   ['f-title','f-date','f-start','f-end','f-location','f-organizer','f-category','f-password','f-desc'].forEach(id=>{
     const el=document.getElementById(id);el.value='';el.classList.remove('err');
   });
+  const bgInput = document.getElementById('f-cat-bg');
+  const txInput = document.getElementById('f-cat-tx');
+  if(bgInput){ bgInput.value = '#dbeafe'; delete bgInput.dataset.userPicked; }
+  if(txInput){ txInput.value = '#1e40af'; delete txInput.dataset.userPicked; }
+  updateColorPreview();
   document.getElementById('conflict-box').style.display='none';
 }
 function openDeleteModal(){

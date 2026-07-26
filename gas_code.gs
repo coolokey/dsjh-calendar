@@ -138,7 +138,9 @@ function listEvents() {
       organizer:   String(r[6]),
       category:    String(r[7] || ''),
       description: String(r[8] || ''),
-      createdAt:   String(r[10] || '')
+      createdAt:   String(r[10] || ''),
+      catBg:       String(r[11] || ''),
+      catTx:       String(r[12] || '')
     });
   }
   return jsonResponse({ success: true, events: result });
@@ -189,7 +191,9 @@ function addEvent(data) {
     data.category    || '',
     data.description || '',
     passwordHash,
-    now
+    now,
+    data.catBg       || '',
+    data.catTx       || ''
   ]);
 
   return jsonResponse({ success: true, id: id });
