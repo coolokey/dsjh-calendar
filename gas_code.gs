@@ -7,7 +7,20 @@ var SHEET_NAME = '會議資料';
 
 // ── 取得工作表 ────────────────────────────────────────────────────
 function getSheet() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var props = PropertiesService.getScriptProperties();
+  var spreadsheetId = props.getProperty('SPREADSHEET_ID');
+  var ss;
+  if (spreadsheetId) {
+    try {
+      ss = SpreadsheetApp.openById(spreadsheetId);
+    } catch (e) {
+      ss = null;
+    }
+  }
+  if (!ss) {
+    ss = SpreadsheetApp.create('大溪國中校內會議行事曆資料庫');
+    props.setProperty('SPREADSHEET_ID', ss.getId());
+  }
   var sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_NAME);
