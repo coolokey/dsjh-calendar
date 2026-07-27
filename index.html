@@ -256,7 +256,7 @@
           </div>
           <input type="text" id="f-participants-other" placeholder="請輸入其他參與單位 (多個請用逗號分隔)" maxlength="100" style="display:none; margin-top:8px;">
         </div>
-        <div class="form-group"><label>刪除密碼 <span class="req">*</span></label><input type="password" id="f-password" placeholder="設定此筆資料的密碼" maxlength="50"><div class="field-hint">&#9888; 請牢記，忘記後無法刪除</div></div>
+        <div class="form-group"><label id="lbl-password">設定密碼 <span class="req">*</span></label><input type="password" id="f-password" placeholder="設定此筆資料的密碼" maxlength="50"><div class="field-hint" id="hint-password">&#9888; 請牢記，忘記後無法刪除或修改</div></div>
         <div class="form-group full"><label>說明備註（選填）</label><textarea id="f-desc" placeholder="詳細說明、注意事項等" rows="3"></textarea></div>
       </div>
     </div>
@@ -269,7 +269,13 @@
   <div class="modal">
     <div class="modal-header" id="detail-hdr"><h2 id="detail-title">會議詳情</h2><button class="modal-close" onclick="closeModal('modal-detail')">&#10005;</button></div>
     <div class="modal-body" id="detail-body"></div>
-    <div class="modal-footer"><button class="btn-cancel" onclick="closeModal('modal-detail')">關閉</button><button class="btn-danger" onclick="openDeleteModal()">刪除此會議</button></div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <div>
+        <button class="btn-cancel" onclick="openEditModal()" style="color:var(--primary);border-color:var(--primary);margin-right:8px;">修改此會議</button>
+        <button class="btn-cancel" onclick="delEvent()" style="color:var(--danger);border-color:var(--danger)">刪除</button>
+      </div>
+      <button class="btn-cancel" onclick="closeModal('modal-detail')">關閉</button>
+    </div>
   </div>
 </div>
 
@@ -287,19 +293,9 @@
 </div>
 
 <script>
-// ================================================================
-// ⚙️  設定區（將 GAS Web App URL 填入下方）
-// ================================================================
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxKDu52bTl7Eh_mgnMdtaUFCFepJ4sd1Cj82cmQPc0zxuwbWTl4X7jcQXUTUYV3DUJC/exec';
-
 let view='month', curDate=new Date(), events=[], selEvent=null;
-const COLORS=[
-  {bg:'#dbeafe',tx:'#1e40af'},{bg:'#dcfce7',tx:'#166534'},
-  {bg:'#fef3c7',tx:'#92400e'},{bg:'#fce7f3',tx:'#9d174d'},
-  {bg:'#ede9fe',tx:'#5b21b6'},{bg:'#ffedd5',tx:'#9a3412'},
-  {bg:'#cffafe',tx:'#155e75'},{bg:'#fdf4ff',tx:'#6b21a8'},
-  {bg:'#fff1f2',tx:'#9f1239'},{bg:'#f0fdf4',tx:'#14532d'}
-];
+const COLORS=[{bg:'#dbeafe',tx:'#1e40af'},{bg:'#dcfce7',tx:'#166534'},{bg:'#fef3c7',tx:'#92400e'},{bg:'#fce7f3',tx:'#9d174d'},{bg:'#ede9fe',tx:'#5b21b6'},{bg:'#ffedd5',tx:'#9a3412'},{bg:'#cffafe',tx:'#155e75'},{bg:'#fdf4ff',tx:'#6b21a8'},{bg:'#fff1f2',tx:'#9f1239'},{bg:'#f0fdf4',tx:'#14532d'}];
 const catMap={};
 function catColor(cat, ev){
   if(ev && ev.catBg && ev.catTx) return {bg: ev.catBg, tx: ev.catTx};
@@ -310,11 +306,7 @@ function catColor(cat, ev){
   catMap[cat]=COLORS[h];
   return COLORS[h];
 }
-
-function markUserPicked(){
-  document.getElementById('f-cat-bg').dataset.userPicked = '1';
-}
-
+function markUserPicked(){document.getElementById('f-cat-bg').dataset.userPicked = '1';}
 function updateColorPreview(){
   const cat = document.getElementById('f-category').value.trim();
   const bgInput = document.getElementById('f-cat-bg');
@@ -324,284 +316,193 @@ function updateColorPreview(){
     bgInput.value = preset.bg;
     txInput.value = preset.tx;
   }
-  const bg = bgInput.value;
-  const tx = txInput.value;
-  const pill = document.getElementById('color-preview-pill');
-  const txt = document.getElementById('preview-text');
-  if(pill){
-    pill.style.background = bg;
-    pill.style.color = tx;
-    const dot = pill.querySelector('.cat-dot');
-    if(dot) dot.style.background = tx;
-  }
+  const bg = bgInput.value, tx = txInput.value;
+  const pill = document.getElementById('color-preview-pill'), txt = document.getElementById('preview-text');
+  if(pill){ pill.style.background = bg; pill.style.color = tx; const dot = pill.querySelector('.cat-dot'); if(dot) dot.style.background = tx; }
   if(txt) txt.textContent = cat || '行政';
 }
-
 function toggleOther(field){
-  if(field === 'location'){
-    document.getElementById('f-location-other').style.display = document.getElementById('f-location').value === '其他' ? 'block' : 'none';
-  } else if(field === 'organizer'){
-    document.getElementById('f-organizer-other').style.display = document.getElementById('f-organizer').value === '其他' ? 'block' : 'none';
-  } else if(field === 'participants'){
-    const cb = document.querySelector('#f-participants-group input[value="其他"]');
-    document.getElementById('f-participants-other').style.display = cb && cb.checked ? 'block' : 'none';
-  } else if(field === 'time'){
-    const cb = document.querySelector('#f-periods-group input[value="custom"]');
-    document.getElementById('f-time-custom-wrap').style.display = cb && cb.checked ? 'block' : 'none';
-  }
+  if(field === 'location') document.getElementById('f-location-other').style.display = document.getElementById('f-location').value === '其他' ? 'block' : 'none';
+  else if(field === 'organizer') document.getElementById('f-organizer-other').style.display = document.getElementById('f-organizer').value === '其他' ? 'block' : 'none';
+  else if(field === 'participants') document.getElementById('f-participants-other').style.display = document.querySelector('#f-participants-group input[value="其他"]').checked ? 'block' : 'none';
+  else if(field === 'time') document.getElementById('f-time-custom-wrap').style.display = document.querySelector('#f-periods-group input[value="custom"]').checked ? 'block' : 'none';
 }
-
-// 用 GET 呼叫 GAS（避免 CORS preflight 問題）
 async function gasCall(action, data){
   const qs=new URLSearchParams({action, _t: new Date().getTime()});
   if(data) qs.set('data', JSON.stringify(data));
   const r=await fetch(GAS_URL+'?'+qs.toString(), {redirect:'follow', cache:'no-store'});
   return r.json();
 }
-
 function normalizeDate(dStr){
   if(!dStr) return '';
   if(dStr.match(/^\d{4}-\d{2}-\d{2}$/)) return dStr;
   const clean = dStr.replace(/\s*\([^)]*\)\s*$/, '');
   const dt = new Date(clean);
-  if(!isNaN(dt.getTime())){
-    return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
-  }
+  if(!isNaN(dt.getTime())) return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
   return dStr;
 }
-
 function normalizeTime(tStr){
   if(!tStr) return '';
-  if(tStr.match(/^\d{1,2}:\d{2}$/)){
-    const [h,m] = tStr.split(':');
-    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
-  }
+  if(tStr.match(/^\d{1,2}:\d{2}$/)){ const [h,m] = tStr.split(':'); return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'); }
   const clean = tStr.replace(/\s*\([^)]*\)\s*$/, '');
   const dt = new Date(clean);
-  if(!isNaN(dt.getTime())){
-    return String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0');
-  }
+  if(!isNaN(dt.getTime())) return String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0');
   return tStr;
 }
-
-// 載入所有會議
 async function fetchEvents(){
   try{
     const d=await gasCall('list');
     if(d.success) {
-      events = (d.events || []).map(e => ({
-        ...e,
-        date: normalizeDate(e.date),
-        startTime: normalizeTime(e.startTime),
-        endTime: normalizeTime(e.endTime)
-      }));
+      events = (d.events || []).map(e => ({...e, date: normalizeDate(e.date), startTime: normalizeTime(e.startTime), endTime: normalizeTime(e.endTime)}));
     } else toast('載入失敗：'+d.error,'error');
-  }catch(e){
-    toast('載入失敗：'+e.message,'error');
-  }
+  }catch(e){ toast('載入失敗：'+e.message,'error'); }
 }
-
-const WD=['日','一','二','三','四','五','六'];
-const MO=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-function isToday(d){
-  const t=new Date();
-  return d.getFullYear()===t.getFullYear()&&d.getMonth()===t.getMonth()&&d.getDate()===t.getDate();
-}
-function dateStr(d){
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-}
-function t2m(t){const[h,m]=String(t).split(':');return+h*60+(+m||0);}
-function eventsOn(ds){return events.filter(e=>e.date===ds).sort((a,b)=>a.startTime.localeCompare(b.startTime));}
-function setView(v){
-  view=v;
-  document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('view-'+v).classList.add('active');
-  render();
-}
+const WD=['日','一','二','三','四','五','六'], MO=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+function isToday(d){ const t=new Date(); return d.getFullYear()===t.getFullYear()&&d.getMonth()===t.getMonth()&&d.getDate()===t.getDate(); }
+function dateStr(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function t2m(t){ const[h,m]=String(t).split(':'); return +h*60+(+m||0); }
+function eventsOn(ds){ return events.filter(e=>e.date===ds).sort((a,b)=>a.startTime.localeCompare(b.startTime)); }
+function setView(v){ view=v; document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active')); document.getElementById('view-'+v).classList.add('active'); render(); }
 function navigate(d){
-  if(view==='month')curDate=new Date(curDate.getFullYear(),curDate.getMonth()+d,1);
-  else if(view==='week')curDate=new Date(curDate.getTime()+d*7*864e5);
+  if(view==='month') curDate=new Date(curDate.getFullYear(),curDate.getMonth()+d,1);
+  else if(view==='week') curDate=new Date(curDate.getTime()+d*7*864e5);
   else curDate=new Date(curDate.getTime()+d*864e5);
   render();
 }
-function goToday(){curDate=new Date();render();}
-function weekRange(){
-  const s=new Date(curDate);
-  s.setDate(curDate.getDate()-curDate.getDay());
-  const e=new Date(s);
-  e.setDate(s.getDate()+6);
-  return{s,e};
-}
+function goToday(){ curDate=new Date(); render(); }
+function weekRange(){ const s=new Date(curDate); s.setDate(curDate.getDate()-curDate.getDay()); const e=new Date(s); e.setDate(s.getDate()+6); return{s,e}; }
 function updateLabel(){
   const el=document.getElementById('period-label');
-  if(view==='month'){
-    el.textContent=curDate.getFullYear()+'年 '+MO[curDate.getMonth()];
-  }else if(view==='week'){
-    const{s,e}=weekRange();
-    el.textContent=s.getMonth()===e.getMonth()
-      ?s.getFullYear()+'年 '+MO[s.getMonth()]+' '+s.getDate()+'–'+e.getDate()+'日'
-      :MO[s.getMonth()]+s.getDate()+'日 – '+MO[e.getMonth()]+e.getDate()+'日';
-  }else{
-    el.textContent=curDate.getFullYear()+'年 '+MO[curDate.getMonth()]+' '+curDate.getDate()+'日（'+WD[curDate.getDay()]+'）';
-  }
+  if(view==='month') el.textContent=curDate.getFullYear()+'年 '+MO[curDate.getMonth()];
+  else if(view==='week'){ const{s,e}=weekRange(); el.textContent=s.getMonth()===e.getMonth()?s.getFullYear()+'年 '+MO[s.getMonth()]+' '+s.getDate()+'–'+e.getDate()+'日':MO[s.getMonth()]+s.getDate()+'日 – '+MO[e.getMonth()]+e.getDate()+'日'; }
+  else el.textContent=curDate.getFullYear()+'年 '+MO[curDate.getMonth()]+' '+curDate.getDate()+'日（'+WD[curDate.getDay()]+'）';
 }
-function render(){updateLabel();const c=document.getElementById('cal');if(view==='month')renderMonth(c);else if(view==='week')renderWeek(c);else renderDay(c);}
+function render(){ updateLabel(); const c=document.getElementById('cal'); if(view==='month') renderMonth(c); else if(view==='week') renderWeek(c); else renderDay(c); }
 function renderMonth(c){
-  const yr=curDate.getFullYear(),mo=curDate.getMonth(),
-        first=new Date(yr,mo,1),last=new Date(yr,mo+1,0),off=first.getDay();
-  let h='<div class="month-grid"><div class="weekdays-header">'+
-    ['日','一','二','三','四','五','六'].map((w,i)=>`<div class="weekday-label${i===0?' sun':i===6?' sat':''}">${w}</div>`).join('')+
-    '</div><div class="days-grid">';
-  for(let i=0;i<off;i++)h+=dayCell(new Date(yr,mo,-off+i+1),true);
-  for(let d=1;d<=last.getDate();d++)h+=dayCell(new Date(yr,mo,d),false);
-  const rem=(7-((off+last.getDate())%7))%7;
-  for(let i=1;i<=rem;i++)h+=dayCell(new Date(yr,mo+1,i),true);
-  h+='</div></div>';
-  c.innerHTML=h;
+  const yr=curDate.getFullYear(),mo=curDate.getMonth(), first=new Date(yr,mo,1),last=new Date(yr,mo+1,0),off=first.getDay();
+  let h='<div class="month-grid"><div class="weekdays-header">'+['日','一','二','三','四','五','六'].map((w,i)=>`<div class="weekday-label${i===0?' sun':i===6?' sat':''}">${w}</div>`).join('')+'</div><div class="days-grid">';
+  for(let i=0;i<off;i++) h+=dayCell(new Date(yr,mo,-off+i+1),true);
+  for(let d=1;d<=last.getDate();d++) h+=dayCell(new Date(yr,mo,d),false);
+  const rem=(7-((off+last.getDate())%7))%7; for(let i=1;i<=rem;i++) h+=dayCell(new Date(yr,mo+1,i),true);
+  h+='</div></div>'; c.innerHTML=h;
 }
 function dayCell(dt,other){
   const ds=dateStr(dt),ev=eventsOn(ds);
   const cls=['day-cell',other?'other-month':'',isToday(dt)?'today':'',dt.getDay()===0?'sun':dt.getDay()===6?'sat':''].filter(Boolean).join(' ');
-  let ep='';
-  ev.slice(0,3).forEach(e=>{
-    const col=catColor(e.category, e);
-    ep+=`<div class="event-pill" style="background:${col.bg};color:${col.tx}" onclick="event.stopPropagation();showDetail('${e.id}')" title="${e.title}">${e.startTime} ${e.title}</div>`;
-  });
-  if(ev.length>3)ep+=`<div class="more-events">+${ev.length-3} 筆</div>`;
+  let ep=''; ev.slice(0,3).forEach(e=>{ const col=catColor(e.category, e); ep+=`<div class="event-pill" style="background:${col.bg};color:${col.tx}" onclick="event.stopPropagation();showDetail('${e.id}')" title="${e.title}">${e.startTime} ${e.title}</div>`; });
+  if(ev.length>3) ep+=`<div class="more-events">+${ev.length-3} 筆</div>`;
   return `<div class="${cls}" onclick="onDayClick('${ds}')"><div class="day-number">${dt.getDate()}</div>${ep}</div>`;
 }
 const SH=7,EH=22;
 function renderWeek(c){
-  const{s}=weekRange();
-  let hdr='<div class="week-header"><div class="week-header-cell"></div>';
+  const{s}=weekRange(); let hdr='<div class="week-header"><div class="week-header-cell"></div>';
+  for(let i=0;i<7;i++){ const d=new Date(s); d.setDate(s.getDate()+i); hdr+=`<div class="week-header-cell${isToday(d)?' today':''}"><div class="wday">${WD[d.getDay()]}</div><div class="wdate">${d.getDate()}</div></div>`; }
+  hdr+='</div>'; let tl='',dc='';
+  for(let h=SH;h<EH;h++) tl+=`<div class="time-slot-label">${h}:00</div>`;
   for(let i=0;i<7;i++){
-    const d=new Date(s);d.setDate(s.getDate()+i);
-    hdr+=`<div class="week-header-cell${isToday(d)?' today':''}"><div class="wday">${WD[d.getDay()]}</div><div class="wdate">${d.getDate()}</div></div>`;
-  }
-  hdr+='</div>';
-  let tl='',dc='';
-  for(let h=SH;h<EH;h++)tl+=`<div class="time-slot-label">${h}:00</div>`;
-  for(let i=0;i<7;i++){
-    const d=new Date(s);d.setDate(s.getDate()+i);
-    const ds=dateStr(d),ev=eventsOn(ds);
-    let sl='';
-    for(let h=SH;h<EH;h++)sl+='<div class="hour-slot"><div class="half-line"></div></div>';
-    let evh='';
-    ev.forEach(e=>{
-      const sm=t2m(e.startTime),em=t2m(e.endTime);
-      if(em<=SH*60||sm>=EH*60)return;
-      const top=Math.max(sm,SH*60)-SH*60,ht=Math.min(em,EH*60)-Math.max(sm,SH*60),col=catColor(e.category, e);
-      evh+=`<div class="week-event" style="top:${top}px;height:${Math.max(ht,18)}px;background:${col.bg};color:${col.tx};border-left:3px solid ${col.tx}" onclick="showDetail('${e.id}')">${e.startTime} ${e.title}</div>`;
-    });
+    const d=new Date(s); d.setDate(s.getDate()+i); const ds=dateStr(d),ev=eventsOn(ds); let sl='';
+    for(let h=SH;h<EH;h++) sl+='<div class="hour-slot"><div class="half-line"></div></div>';
+    let evh=''; ev.forEach(e=>{ const sm=t2m(e.startTime),em=t2m(e.endTime); if(em<=SH*60||sm>=EH*60)return; const top=Math.max(sm,SH*60)-SH*60,ht=Math.min(em,EH*60)-Math.max(sm,SH*60),col=catColor(e.category, e); evh+=`<div class="week-event" style="top:${top}px;height:${Math.max(ht,18)}px;background:${col.bg};color:${col.tx};border-left:3px solid ${col.tx}" onclick="showDetail('${e.id}')">${e.startTime} ${e.title}</div>`; });
     dc+=`<div class="day-col"><div style="position:relative">${sl}${evh}</div></div>`;
   }
   c.innerHTML=`<div class="week-view">${hdr}<div class="week-body"><div class="time-col">${tl}</div><div class="days-cols">${dc}</div></div></div>`;
-  const wb=c.querySelector('.week-body');
-  if(wb)wb.scrollTop=Math.max(0,(8-SH)*60);
+  const wb=c.querySelector('.week-body'); if(wb) wb.scrollTop=Math.max(0,(8-SH)*60);
 }
 function renderDay(c){
-  const ds=dateStr(curDate),ev=eventsOn(ds);
-  let tl='',sl='';
-  for(let h=SH;h<EH;h++){
-    tl+=`<div class="time-slot-label">${h}:00</div>`;
-    sl+='<div class="hour-slot"><div class="half-line"></div></div>';
-  }
-  let evh='';
-  ev.forEach(e=>{
-    const sm=t2m(e.startTime),em=t2m(e.endTime);
-    if(em<=SH*60||sm>=EH*60)return;
-    const top=Math.max(sm,SH*60)-SH*60,ht=Math.min(em,EH*60)-Math.max(sm,SH*60),col=catColor(e.category, e);
-    evh+=`<div class="day-event" style="top:${top}px;height:${Math.max(ht,36)}px;background:${col.bg};color:${col.tx};border-left:4px solid ${col.tx}" onclick="showDetail('${e.id}')"><div class="ev-title">${e.title}</div><div class="ev-sub">&#9200; ${e.startTime}&ndash;${e.endTime}&emsp;&#128205; ${e.location}</div></div>`;
-  });
-  if(!evh)evh='<div class="no-events">&#128219; 今天沒有會議或活動</div>';
+  const ds=dateStr(curDate),ev=eventsOn(ds); let tl='',sl='';
+  for(let h=SH;h<EH;h++){ tl+=`<div class="time-slot-label">${h}:00</div>`; sl+='<div class="hour-slot"><div class="half-line"></div></div>'; }
+  let evh=''; ev.forEach(e=>{ const sm=t2m(e.startTime),em=t2m(e.endTime); if(em<=SH*60||sm>=EH*60)return; const top=Math.max(sm,SH*60)-SH*60,ht=Math.min(em,EH*60)-Math.max(sm,SH*60),col=catColor(e.category, e); evh+=`<div class="day-event" style="top:${top}px;height:${Math.max(ht,36)}px;background:${col.bg};color:${col.tx};border-left:4px solid ${col.tx}" onclick="showDetail('${e.id}')"><div class="ev-title">${e.title}</div><div class="ev-sub">&#9200; ${e.startTime}&ndash;${e.endTime}&emsp;&#128205; ${e.location}</div></div>`; });
+  if(!evh) evh='<div class="no-events">&#128219; 今天沒有會議或活動</div>';
   c.innerHTML=`<div class="day-view"><div class="day-view-header"><div class="dv-date">${curDate.getDate()}</div><div class="dv-weekday">${curDate.getFullYear()}年 ${MO[curDate.getMonth()]}・星期${WD[curDate.getDay()]}</div></div><div class="day-body"><div class="time-col">${tl}</div><div class="day-events-col" style="position:relative">${sl}${evh}</div></div></div>`;
-  const db=c.querySelector('.day-body');
-  if(db)db.scrollTop=Math.max(0,(8-SH)*60);
+  const db=c.querySelector('.day-body'); if(db) db.scrollTop=Math.max(0,(8-SH)*60);
 }
 function showDetail(id){
-  const ev=events.find(e=>e.id===id);
-  if(!ev)return;
-  selEvent=ev;
-  const col=catColor(ev.category, ev);
-  document.getElementById('detail-hdr').style.background=`linear-gradient(135deg,${col.tx}ee,${col.tx}99)`;
-  document.getElementById('detail-title').textContent=ev.title;
-  const catHtml=ev.category
-    ?`<span class="cat-tag" style="background:${col.bg};color:${col.tx}"><span class="cat-dot" style="background:${col.tx}"></span>${ev.category}</span>`:'–';
-  document.getElementById('detail-body').innerHTML=`
-    <div class="detail-row"><div class="detail-icon">&#128197;</div><div><div class="detail-label">日期</div><div class="detail-value">${ev.date}</div></div></div>
-    <div class="detail-row"><div class="detail-icon">&#9200;</div><div><div class="detail-label">時間</div><div class="detail-value">${ev.startTime} – ${ev.endTime}</div></div></div>
-    <div class="detail-row"><div class="detail-icon">&#128205;</div><div><div class="detail-label">地點</div><div class="detail-value">${ev.location}</div></div></div>
-    <div class="detail-row"><div class="detail-icon">&#127970;</div><div><div class="detail-label">申請單位(主辦單位)</div><div class="detail-value">${ev.organizer}</div></div></div>
-    ${ev.participants?`<div class="detail-row"><div class="detail-icon">&#128101;</div><div><div class="detail-label">參與單位</div><div class="detail-value">${ev.participants}</div></div></div>`:''}
-    <div class="detail-row"><div class="detail-icon">&#127991;</div><div><div class="detail-label">分類</div><div class="detail-value">${catHtml}</div></div></div>
-    ${ev.description?`<div class="detail-row"><div class="detail-icon">&#128221;</div><div><div class="detail-label">說明備註</div><div class="detail-value" style="white-space:pre-wrap">${ev.description}</div></div></div>`:''}
-    <div style="font-size:.72rem;color:var(--text-light);margin-top:8px">建立時間：${ev.createdAt}</div>`;
-  openModal('modal-detail');
+  const ev=events.find(e=>e.id===id); if(!ev)return; selEvent=ev; const col=catColor(ev.category, ev); document.getElementById('detail-hdr').style.background=`linear-gradient(135deg,${col.tx}ee,${col.tx}99)`; document.getElementById('detail-title').textContent=ev.title; const catHtml=ev.category?`<span class="cat-tag" style="background:${col.bg};color:${col.tx}"><span class="cat-dot" style="background:${col.tx}"></span>${ev.category}</span>`:'–'; document.getElementById('detail-body').innerHTML=`<div class="detail-row"><div class="detail-icon">&#128197;</div><div><div class="detail-label">日期</div><div class="detail-value">${ev.date}</div></div></div><div class="detail-row"><div class="detail-icon">&#9200;</div><div><div class="detail-label">時間</div><div class="detail-value">${ev.startTime} – ${ev.endTime}</div></div></div><div class="detail-row"><div class="detail-icon">&#128205;</div><div><div class="detail-label">地點</div><div class="detail-value">${ev.location}</div></div></div><div class="detail-row"><div class="detail-icon">&#127970;</div><div><div class="detail-label">申請單位(主辦單位)</div><div class="detail-value">${ev.organizer}</div></div></div>${ev.participants?`<div class="detail-row"><div class="detail-icon">&#128101;</div><div><div class="detail-label">參與單位</div><div class="detail-value">${ev.participants}</div></div></div>`:''}<div class="detail-row"><div class="detail-icon">&#127991;</div><div><div class="detail-label">分類</div><div class="detail-value">${catHtml}</div></div></div>${ev.description?`<div class="detail-row"><div class="detail-icon">&#128221;</div><div><div class="detail-label">說明備註</div><div class="detail-value" style="white-space:pre-wrap">${ev.description}</div></div></div>`:''}<div style="font-size:.72rem;color:var(--text-light);margin-top:8px">建立時間：${ev.createdAt}</div>`; openModal('modal-detail');
 }
-function onDayClick(ds){document.getElementById('f-date').value=ds;openAddModal();}
-function openAddModal(){
-  if(!document.getElementById('f-date').value)document.getElementById('f-date').value=dateStr(curDate);
-  document.getElementById('conflict-box').style.display='none';
+function onDayClick(ds){ document.getElementById('f-date').value=ds; openAddModal(); }
+function openAddModal(dateStr){
+  clearAddForm();
+  document.getElementById('f-id').value = '';
+  if(dateStr) document.getElementById('f-date').value = dateStr;
+  document.getElementById('modal-add-title').textContent = '新增會議 / 活動';
+  document.getElementById('btn-add-submit').textContent = '確認新增';
+  document.getElementById('lbl-password').innerHTML = '設定密碼 <span class="req">*</span>';
+  document.getElementById('f-password').placeholder = '設定此筆資料的密碼';
+  document.getElementById('hint-password').innerHTML = '&#9888; 請牢記，忘記後無法刪除或修改';
+  openModal('modal-add');
+}
+function openEditModal(){
+  if(!selEvent) return;
+  closeModal('modal-detail');
+  clearAddForm();
+  document.getElementById('f-id').value = selEvent.id;
+  document.getElementById('modal-add-title').textContent = '修改會議 / 活動';
+  document.getElementById('btn-add-submit').textContent = '確認修改';
+  document.getElementById('lbl-password').innerHTML = '驗證密碼 <span class="req">*</span>';
+  document.getElementById('f-password').placeholder = '請輸入原密碼以確認修改';
+  document.getElementById('hint-password').innerHTML = '&#9888; 必須輸入原始密碼才能儲存修改';
+  document.getElementById('f-title').value = selEvent.title;
+  document.getElementById('f-date').value = selEvent.date;
+  let locEl = document.getElementById('f-location');
+  let locOpts = Array.from(locEl.options).map(o => o.value);
+  if (locOpts.includes(selEvent.location)) locEl.value = selEvent.location; else { locEl.value = '其他'; document.getElementById('f-location-other').value = selEvent.location; }
+  toggleOther('location');
+  let orgEl = document.getElementById('f-organizer');
+  let orgOpts = Array.from(orgEl.options).map(o => o.value);
+  if (orgOpts.includes(selEvent.organizer)) orgEl.value = selEvent.organizer; else { orgEl.value = '其他'; document.getElementById('f-organizer-other').value = selEvent.organizer; }
+  toggleOther('organizer');
+  let parts = selEvent.participants ? selEvent.participants.split(',').map(s=>s.trim()) : [];
+  let otherParts = [];
+  parts.forEach(p => { let cb = document.querySelector(`#f-participants-group input[type="checkbox"][value="${p}"]`); if (cb) cb.checked = true; else if(p) otherParts.push(p); });
+  if (otherParts.length > 0) { let cb = document.querySelector('#f-participants-group input[value="其他"]'); if(cb) cb.checked = true; document.getElementById('f-participants-other').value = otherParts.join(', '); }
+  toggleOther('participants');
+  let cbCust = document.querySelector('#f-periods-group input[value="custom"]');
+  if(cbCust) cbCust.checked = true;
+  document.getElementById('f-start').value = selEvent.startTime;
+  document.getElementById('f-end').value = selEvent.endTime;
+  toggleOther('time');
+  document.getElementById('f-category').value = selEvent.category || '';
+  document.getElementById('f-desc').value = selEvent.description || '';
+  if (selEvent.catBg) { let bgEl = document.getElementById('f-cat-bg'); bgEl.value = selEvent.catBg; bgEl.dataset.userPicked = '1'; }
+  if (selEvent.catTx) document.getElementById('f-cat-tx').value = selEvent.catTx;
   openModal('modal-add');
 }
 async function submitAdd(){
   const ids=['f-title','f-date','f-password'];
   let ok=true;
   ids.forEach(id=>{const el=document.getElementById(id);el.classList.remove('err');if(!el.value.trim()){el.classList.add('err');ok=false;}});
-  
-  let startTime = '';
-  let endTime = '';
-  let isCustomTime = false;
+  let startTime = '', endTime = '', isCustomTime = false;
   document.querySelectorAll('#f-periods-group input[type="checkbox"]:checked').forEach(cb => {
     if (cb.value === 'custom') isCustomTime = true;
-    else {
-      const [s, e] = cb.value.split('-');
-      if (!startTime || s < startTime) startTime = s;
-      if (!endTime || e > endTime) endTime = e;
-    }
+    else { const [s, e] = cb.value.split('-'); if (!startTime || s < startTime) startTime = s; if (!endTime || e > endTime) endTime = e; }
   });
-
-  const fStartEl = document.getElementById('f-start');
-  const fEndEl = document.getElementById('f-end');
-  fStartEl.classList.remove('err');
-  fEndEl.classList.remove('err');
-
-  if (isCustomTime) {
-    if (!fStartEl.value) { fStartEl.classList.add('err'); ok = false; }
-    if (!fEndEl.value) { fEndEl.classList.add('err'); ok = false; }
-    if (fStartEl.value && (!startTime || fStartEl.value < startTime)) startTime = fStartEl.value;
-    if (fEndEl.value && (!endTime || fEndEl.value > endTime)) endTime = fEndEl.value;
-  }
-
-  const periodsWrap = document.getElementById('f-periods-group');
-  periodsWrap.style.borderColor = 'var(--border)';
-  if (!startTime || !endTime) {
-    periodsWrap.style.borderColor = 'var(--danger)';
-    ok = false;
-  }
-
+  const fStartEl = document.getElementById('f-start'), fEndEl = document.getElementById('f-end');
+  fStartEl.classList.remove('err'); fEndEl.classList.remove('err');
+  if (isCustomTime) { if (!fStartEl.value) { fStartEl.classList.add('err'); ok = false; } if (!fEndEl.value) { fEndEl.classList.add('err'); ok = false; } if (fStartEl.value && (!startTime || fStartEl.value < startTime)) startTime = fStartEl.value; if (fEndEl.value && (!endTime || fEndEl.value > endTime)) endTime = fEndEl.value; }
+  const periodsWrap = document.getElementById('f-periods-group'); periodsWrap.style.borderColor = 'var(--border)';
+  if (!startTime || !endTime) { periodsWrap.style.borderColor = 'var(--danger)'; ok = false; }
   let locVal = document.getElementById('f-location').value;
   let locEl = locVal === '其他' ? document.getElementById('f-location-other') : document.getElementById('f-location');
-  locEl.classList.remove('err');
-  if(!locEl.value.trim()) { locEl.classList.add('err'); ok=false; }
-  
+  locEl.classList.remove('err'); if(!locEl.value.trim()) { locEl.classList.add('err'); ok=false; }
   let orgVal = document.getElementById('f-organizer').value;
   let orgEl = orgVal === '其他' ? document.getElementById('f-organizer-other') : document.getElementById('f-organizer');
-  orgEl.classList.remove('err');
-  if(!orgEl.value.trim()) { orgEl.classList.add('err'); ok=false; }
-
+  orgEl.classList.remove('err'); if(!orgEl.value.trim()) { orgEl.classList.add('err'); ok=false; }
   if(!ok){toast('請填寫所有必填欄位（標有*者）','warning');return;}
   if(t2m(endTime) <= t2m(startTime)){
     toast('結束時間必須晚於開始時間','warning');
     periodsWrap.style.borderColor = 'var(--danger)';
     return;
   }
+  
+  const actionId = document.getElementById('f-id').value;
+  const isEdit = !!actionId;
+  const actionName = isEdit ? 'edit' : 'add';
+
   const btn=document.getElementById('btn-add-submit');
-  btn.disabled=true;btn.textContent='送出中...';
+  btn.disabled=true;btn.textContent= isEdit ? '修改中...' : '送出中...';
   try{
     const title    =document.getElementById('f-title').value.trim();
     const date     =document.getElementById('f-date').value;
-    // startTime and endTime already resolved above
     const location =locEl.value.trim();
     const organizer=orgEl.value.trim();
 
@@ -623,8 +524,9 @@ async function submitAdd(){
     const catBg    =document.getElementById('f-cat-bg').value;
     const catTx    =document.getElementById('f-cat-tx').value;
 
-    // 衝突偵測（前端屐選，後端 GAS 也會再檢查一次）
+    // 前端衝突偵測
     const conflict=events.find(e=>{
+      if(isEdit && e.id === actionId) return false;
       if(e.date!==date)return false;
       return t2m(startTime)<t2m(e.endTime)&&t2m(endTime)>t2m(e.startTime);
     });
@@ -632,24 +534,27 @@ async function submitAdd(){
       document.getElementById('conflict-msg').textContent=
         `衝突！${conflict.startTime}–${conflict.endTime} 已有「${conflict.title}」${conflict.location ? ' (於 ' + conflict.location + ')' : ''}`;
       document.getElementById('conflict-box').style.display='flex';
-      btn.disabled=false;btn.textContent='確認新增';return;
+      btn.disabled=false;btn.textContent= isEdit ? '確認修改' : '確認新增';return;
     }
 
-    const res=await gasCall('add',{title,date,startTime,endTime,location,organizer,category,password,description,catBg,catTx,participants});
+    const payload = {title,date,startTime,endTime,location,organizer,category,password,description,catBg,catTx,participants};
+    if (isEdit) payload.id = actionId;
+
+    const res=await gasCall(actionName, payload);
     if(res.conflict){
       document.getElementById('conflict-msg').textContent=res.error;
       document.getElementById('conflict-box').style.display='flex';
     }else if(res.success){
-      toast('✅ 會議新增成功！','success');
+      toast(isEdit ? '✅ 會議修改成功！' : '✅ 會議新增成功！','success');
       closeModal('modal-add');clearAddForm();
       await fetchEvents();render();
     }else{
-      toast('新增失敗：'+(res.error||'未知錯誤'),'error');
+      toast((isEdit ? '修改失敗：' : '新增失敗：')+(res.error||'未知錯誤'),'error');
     }
   }catch(e){
     toast('連線失敗：'+e.message,'error');
   }
-  btn.disabled=false;btn.textContent='確認新增';
+  btn.disabled=false;btn.textContent= isEdit ? '確認修改' : '確認新增';
 }
 function clearAddForm(){
   ['f-title','f-date','f-start','f-end','f-location','f-location-other','f-organizer','f-organizer-other','f-category','f-password','f-desc','f-participants-other'].forEach(id=>{

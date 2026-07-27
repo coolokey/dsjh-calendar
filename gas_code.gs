@@ -110,6 +110,7 @@ function doGet(e) {
 
     if (action === 'list')   return listEvents();
     if (action === 'add')    return addEvent(data);
+    if (action === 'edit')   return editEvent(data);
     if (action === 'delete') return deleteEvent(data);
 
     return jsonResponse({ success: false, error: '未知操作：' + action });
@@ -197,6 +198,77 @@ function addEvent(data) {
     data.catTx       || '',
     data.participants || ''
   ]);
+
+  return jsonResponse({ success: true, id: id });
+}
+
+// ── 修改會議 ──────────────────────────────────────────────────────
+function editEvent(data) {
+  var id = data.id;
+  var password = data.password;
+  if (!id || !password) return jsonResponse({ success: false, error: '缺少 ID 或密碼' });
+
+  var MASTER_PASSWORD = '680626';
+  var sheet        = getSheet();
+  var rows         = sheet.getDataRange().getValues();
+  var passwordHash = hashPassword(password);
+
+  var rowIndex = -1;
+  var rowData = null;
+
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(id)) {
+      rowIndex = i + 1;
+      rowData = rows[i];
+      break;
+    }
+  }
+
+  if (rowIndex === -1) return jsonResponse({ success: false, error: '找不到該筆資料' });
+
+  var isMaster = (String(password).trim() === MASTER_PASSWORD);
+  var isOwner  = (String(rowData[9]) === passwordHash);
+  if (!isMaster && !isOwner) {
+    return jsonResponse({ success: false, error: '密碼錯誤，無法修改' });
+  }
+
+  var required = ['title', 'date', 'startTime', 'endTime', 'location', 'organizer'];
+  for (var j = 0; j < required.length; j++) {
+    if (!data[required[j]]) {
+      return jsonResponse({ success: false, error: '請填寫所有必填欄位' });
+    }
+  }
+
+  var cleanDate  = formatDate(data.date);
+  var cleanStart = formatTime(data.startTime);
+  var cleanEnd   = formatTime(data.endTime);
+
+  var conflict = checkConflict(sheet, cleanDate, cleanStart, cleanEnd, id);
+  if (conflict) {
+    return jsonResponse({
+      success:  false,
+      conflict: true,
+      error:    '衝突！' + conflict.startTime + '–' + conflict.endTime +
+                ' 已有「' + conflict.title + '」' +
+                (conflict.location ? ' (於 ' + conflict.location + ')' : '')
+    });
+  }
+
+  sheet.getRange(rowIndex, 2, 1, 13).setValues([[
+    data.title,
+    cleanDate,
+    cleanStart,
+    cleanEnd,
+    data.location,
+    data.organizer,
+    data.category    || '',
+    data.description || '',
+    String(rowData[9]),
+    String(rowData[10]),
+    data.catBg       || '',
+    data.catTx       || '',
+    data.participants || ''
+  ]]);
 
   return jsonResponse({ success: true, id: id });
 }
