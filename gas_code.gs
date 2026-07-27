@@ -45,7 +45,7 @@ function formatDate(val) {
   if (val instanceof Date) {
     return Utilities.formatDate(val, 'Asia/Taipei', 'yyyy-MM-dd');
   }
-  var str = String(val).trim();
+  var str = String(val).trim().replace(/^'/, '');
   if (str.match(/^\d{4}-\d{2}-\d{2}$/)) return str;
   var cleanStr = str.replace(/\s*\([^)]*\)\s*$/, '');
   var d = new Date(cleanStr);
@@ -60,7 +60,7 @@ function formatTime(val) {
   if (val instanceof Date) {
     return Utilities.formatDate(val, 'Asia/Taipei', 'HH:mm');
   }
-  var str = String(val).trim();
+  var str = String(val).trim().replace(/^'/, '');
   if (str.match(/^\d{1,2}:\d{2}$/)) {
     var parts = str.split(':');
     return ('0' + parts[0]).slice(-2) + ':' + ('0' + parts[1]).slice(-2);
@@ -88,7 +88,7 @@ function hashPassword(password) {
 // ── 時間轉分鐘 ────────────────────────────────────────────────────
 function t2m(t) {
   var parts = String(t).split(':');
-  return parseInt(parts[0]) * 60 + parseInt(parts[1] || 0);
+  return parseInt(parts[0], 10) * 60 + parseInt(parts[1] || 0, 10);
 }
 
 // ── JSON 回應 ─────────────────────────────────────────────────────
@@ -140,7 +140,8 @@ function listEvents() {
       description: String(r[8] || ''),
       createdAt:   String(r[10] || ''),
       catBg:       String(r[11] || ''),
-      catTx:       String(r[12] || '')
+      catTx:       String(r[12] || ''),
+      participants:String(r[13] || '')
     });
   }
   return jsonResponse({ success: true, events: result });
@@ -165,14 +166,14 @@ function addEvent(data) {
   var sheet = getSheet();
 
   // 衝突偵測
-  var conflict = checkConflict(sheet, cleanDate, cleanStart, cleanEnd, data.location, null);
+  var conflict = checkConflict(sheet, cleanDate, cleanStart, cleanEnd, null);
   if (conflict) {
     return jsonResponse({
       success:  false,
       conflict: true,
-      error:    '衝突！地點「' + data.location + '」' +
-                conflict.startTime + '–' + conflict.endTime +
-                ' 已有「' + conflict.title + '」'
+      error:    '衝突！' + conflict.startTime + '–' + conflict.endTime +
+                ' 已有「' + conflict.title + '」' + 
+                (conflict.location ? ' (於 ' + conflict.location + ')' : '')
     });
   }
 
@@ -183,9 +184,9 @@ function addEvent(data) {
   sheet.appendRow([
     id,
     data.title,
-    "'" + cleanDate,
-    "'" + cleanStart,
-    "'" + cleanEnd,
+    cleanDate,
+    cleanStart,
+    cleanEnd,
     data.location,
     data.organizer,
     data.category    || '',
@@ -193,7 +194,8 @@ function addEvent(data) {
     passwordHash,
     now,
     data.catBg       || '',
-    data.catTx       || ''
+    data.catTx       || '',
+    data.participants || ''
   ]);
 
   return jsonResponse({ success: true, id: id });
@@ -225,7 +227,7 @@ function deleteEvent(data) {
 }
 
 // ── 衝突偵測輔助 ──────────────────────────────────────────────────
-function checkConflict(sheet, date, startTime, endTime, location, excludeId) {
+function checkConflict(sheet, date, startTime, endTime, excludeId) {
   var rows     = sheet.getDataRange().getValues();
   var newStart = t2m(startTime);
   var newEnd   = t2m(endTime);
@@ -236,12 +238,11 @@ function checkConflict(sheet, date, startTime, endTime, location, excludeId) {
     if (excludeId && String(r[0]) === String(excludeId)) continue;
 
     var rowDate = formatDate(r[2]);
-    var rowLoc  = String(r[5]).trim();
-    if (rowDate === date && rowLoc === String(location).trim()) {
+    if (rowDate === date) {
       var exStart = t2m(formatTime(r[3]));
       var exEnd   = t2m(formatTime(r[4]));
       if (newStart < exEnd && newEnd > exStart) {
-        return { title: String(r[1]), startTime: formatTime(r[3]), endTime: formatTime(r[4]) };
+        return { title: String(r[1]), startTime: formatTime(r[3]), endTime: formatTime(r[4]), location: String(r[5]).trim() };
       }
     }
   }

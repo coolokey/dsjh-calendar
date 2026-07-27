@@ -104,6 +104,9 @@
     input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary-light);box-shadow:0 0 0 3px rgba(42,82,152,.1)}
     input.err{border-color:var(--danger)}
     .field-hint{font-size:.72rem;color:var(--text-light);margin-top:4px}
+    .checkbox-group{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px;background:white}
+    .cb-label{display:inline-flex;align-items:center;gap:4px;font-size:.82rem;font-weight:500;color:var(--text-dark);cursor:pointer;margin:0}
+    .cb-label input{width:16px;height:16px;margin:0;cursor:pointer}
     textarea{resize:vertical;min-height:72px}
     .modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
     .btn-cancel{background:none;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 20px;font-family:inherit;font-size:.86rem;font-weight:500;color:var(--text-medium);cursor:pointer;transition:all .2s}
@@ -166,10 +169,36 @@
       <div class="form-row">
         <div class="form-group full"><label>標題 <span class="req">*</span></label><input type="text" id="f-title" placeholder="會議或活動名稱" maxlength="100"></div>
         <div class="form-group"><label>日期 <span class="req">*</span></label><input type="date" id="f-date"></div>
-        <div class="form-group"><label>地點 <span class="req">*</span></label><input type="text" id="f-location" placeholder="如：會議室、體育館" maxlength="60"></div>
+        <div class="form-group"><label>地點 <span class="req">*</span></label>
+          <select id="f-location" onchange="toggleOther('location')">
+            <option value="">請選擇地點...</option>
+            <option value="學生活動中心">學生活動中心</option>
+            <option value="行政大樓3F教師研習中心">行政大樓3F教師研習中心</option>
+            <option value="科技館1F視廳教室">科技館1F視廳教室</option>
+            <option value="科技館2F科技智慧教室">科技館2F科技智慧教室</option>
+            <option value="科技館2F科技創作教室">科技館2F科技創作教室</option>
+            <option value="圖書館">圖書館</option>
+            <option value="校史室">校史室</option>
+            <option value="新大樓1F視聽中心">新大樓1F視聽中心</option>
+            <option value="其他">其他</option>
+          </select>
+          <input type="text" id="f-location-other" placeholder="請輸入地點名稱" maxlength="60" style="display:none; margin-top:8px;">
+        </div>
         <div class="form-group"><label>開始時間 <span class="req">*</span></label><input type="time" id="f-start"></div>
         <div class="form-group"><label>結束時間 <span class="req">*</span></label><input type="time" id="f-end"></div>
-        <div class="form-group full"><label>主辦單位 / 部門 <span class="req">*</span></label><input type="text" id="f-organizer" placeholder="如：教務處、總務處、學務處" maxlength="60"></div>
+        <div class="form-group full"><label>申請單位 (主辦單位) <span class="req">*</span></label>
+          <select id="f-organizer" onchange="toggleOther('organizer')">
+            <option value="">請選擇單位...</option>
+            <option value="教務處">教務處</option>
+            <option value="學務處">學務處</option>
+            <option value="總務處">總務處</option>
+            <option value="輔導室">輔導室</option>
+            <option value="人事室">人事室</option>
+            <option value="科技中心">科技中心</option>
+            <option value="其他">其他</option>
+          </select>
+          <input type="text" id="f-organizer-other" placeholder="請輸入單位名稱" maxlength="60" style="display:none; margin-top:8px;">
+        </div>
         <div class="form-group full">
           <label>分類與自訂配色（選填）</label>
           <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">
@@ -189,6 +218,23 @@
               <span class="cat-dot" style="width:7px;height:7px;border-radius:50%;background:#1e40af"></span><span id="preview-text">行政</span>
             </span>
           </div>
+        </div>
+        <div class="form-group full">
+          <label>參與單位（選填）</label>
+          <div class="checkbox-group" id="f-participants-group">
+            <label class="cb-label"><input type="checkbox" value="教務處"> 教務處</label>
+            <label class="cb-label"><input type="checkbox" value="學務處"> 學務處</label>
+            <label class="cb-label"><input type="checkbox" value="總務處"> 總務處</label>
+            <label class="cb-label"><input type="checkbox" value="輔導室"> 輔導室</label>
+            <label class="cb-label"><input type="checkbox" value="人事室"> 人事室</label>
+            <label class="cb-label"><input type="checkbox" value="科技中心"> 科技中心</label>
+            <label class="cb-label"><input type="checkbox" value="七年級導師"> 七年級導師</label>
+            <label class="cb-label"><input type="checkbox" value="八年級導師"> 八年級導師</label>
+            <label class="cb-label"><input type="checkbox" value="九年級導師"> 九年級導師</label>
+            <label class="cb-label"><input type="checkbox" value="專任教師"> 專任教師</label>
+            <label class="cb-label"><input type="checkbox" value="其他" onchange="toggleOther('participants')"> 其他</label>
+          </div>
+          <input type="text" id="f-participants-other" placeholder="請輸入其他參與單位 (多個請用逗號分隔)" maxlength="100" style="display:none; margin-top:8px;">
         </div>
         <div class="form-group"><label>刪除密碼 <span class="req">*</span></label><input type="password" id="f-password" placeholder="設定此筆資料的密碼" maxlength="50"><div class="field-hint">&#9888; 請牢記，忘記後無法刪除</div></div>
         <div class="form-group full"><label>說明備註（選填）</label><textarea id="f-desc" placeholder="詳細說明、注意事項等" rows="3"></textarea></div>
@@ -224,7 +270,7 @@
 // ================================================================
 // ⚙️  設定區（將 GAS Web App URL 填入下方）
 // ================================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbybalU3HR7C7wuAARiObnKzv8mJGI3sITVJ9Uz43_9Oi0TVvELwEw7sUUQxD6tRCOC8/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxKDu52bTl7Eh_mgnMdtaUFCFepJ4sd1Cj82cmQPc0zxuwbWTl4X7jcQXUTUYV3DUJC/exec';
 
 let view='month', curDate=new Date(), events=[], selEvent=null;
 const COLORS=[
@@ -271,11 +317,22 @@ function updateColorPreview(){
   if(txt) txt.textContent = cat || '行政';
 }
 
+function toggleOther(field){
+  if(field === 'location'){
+    document.getElementById('f-location-other').style.display = document.getElementById('f-location').value === '其他' ? 'block' : 'none';
+  } else if(field === 'organizer'){
+    document.getElementById('f-organizer-other').style.display = document.getElementById('f-organizer').value === '其他' ? 'block' : 'none';
+  } else if(field === 'participants'){
+    const cb = document.querySelector('#f-participants-group input[value="其他"]');
+    document.getElementById('f-participants-other').style.display = cb && cb.checked ? 'block' : 'none';
+  }
+}
+
 // 用 GET 呼叫 GAS（避免 CORS preflight 問題）
 async function gasCall(action, data){
-  const qs=new URLSearchParams({action});
+  const qs=new URLSearchParams({action, _t: new Date().getTime()});
   if(data) qs.set('data', JSON.stringify(data));
-  const r=await fetch(GAS_URL+'?'+qs.toString(), {redirect:'follow'});
+  const r=await fetch(GAS_URL+'?'+qs.toString(), {redirect:'follow', cache:'no-store'});
   return r.json();
 }
 
@@ -451,7 +508,8 @@ function showDetail(id){
     <div class="detail-row"><div class="detail-icon">&#128197;</div><div><div class="detail-label">日期</div><div class="detail-value">${ev.date}</div></div></div>
     <div class="detail-row"><div class="detail-icon">&#9200;</div><div><div class="detail-label">時間</div><div class="detail-value">${ev.startTime} – ${ev.endTime}</div></div></div>
     <div class="detail-row"><div class="detail-icon">&#128205;</div><div><div class="detail-label">地點</div><div class="detail-value">${ev.location}</div></div></div>
-    <div class="detail-row"><div class="detail-icon">&#127970;</div><div><div class="detail-label">主辦單位/部門</div><div class="detail-value">${ev.organizer}</div></div></div>
+    <div class="detail-row"><div class="detail-icon">&#127970;</div><div><div class="detail-label">申請單位(主辦單位)</div><div class="detail-value">${ev.organizer}</div></div></div>
+    ${ev.participants?`<div class="detail-row"><div class="detail-icon">&#128101;</div><div><div class="detail-label">參與單位</div><div class="detail-value">${ev.participants}</div></div></div>`:''}
     <div class="detail-row"><div class="detail-icon">&#127991;</div><div><div class="detail-label">分類</div><div class="detail-value">${catHtml}</div></div></div>
     ${ev.description?`<div class="detail-row"><div class="detail-icon">&#128221;</div><div><div class="detail-label">說明備註</div><div class="detail-value" style="white-space:pre-wrap">${ev.description}</div></div></div>`:''}
     <div style="font-size:.72rem;color:var(--text-light);margin-top:8px">建立時間：${ev.createdAt}</div>`;
@@ -464,9 +522,20 @@ function openAddModal(){
   openModal('modal-add');
 }
 async function submitAdd(){
-  const ids=['f-title','f-date','f-start','f-end','f-location','f-organizer','f-password'];
+  const ids=['f-title','f-date','f-start','f-end','f-password'];
   let ok=true;
   ids.forEach(id=>{const el=document.getElementById(id);el.classList.remove('err');if(!el.value.trim()){el.classList.add('err');ok=false;}});
+  
+  let locVal = document.getElementById('f-location').value;
+  let locEl = locVal === '其他' ? document.getElementById('f-location-other') : document.getElementById('f-location');
+  locEl.classList.remove('err');
+  if(!locEl.value.trim()) { locEl.classList.add('err'); ok=false; }
+  
+  let orgVal = document.getElementById('f-organizer').value;
+  let orgEl = orgVal === '其他' ? document.getElementById('f-organizer-other') : document.getElementById('f-organizer');
+  orgEl.classList.remove('err');
+  if(!orgEl.value.trim()) { orgEl.classList.add('err'); ok=false; }
+
   if(!ok){toast('請填寫所有必填欄位（標有*者）','warning');return;}
   if(t2m(document.getElementById('f-end').value)<=t2m(document.getElementById('f-start').value)){
     toast('結束時間必須晚於開始時間','warning');
@@ -479,8 +548,20 @@ async function submitAdd(){
     const date     =document.getElementById('f-date').value;
     const startTime=document.getElementById('f-start').value;
     const endTime  =document.getElementById('f-end').value;
-    const location =document.getElementById('f-location').value.trim();
-    const organizer=document.getElementById('f-organizer').value.trim();
+    const location =locEl.value.trim();
+    const organizer=orgEl.value.trim();
+
+    let participantsArr = [];
+    document.querySelectorAll('#f-participants-group input[type="checkbox"]:checked').forEach(cb => {
+      if(cb.value === '其他') {
+        const otherVal = document.getElementById('f-participants-other').value.trim();
+        if(otherVal) participantsArr.push(otherVal);
+      } else {
+        participantsArr.push(cb.value);
+      }
+    });
+    const participants = participantsArr.join(', ');
+
     const category =document.getElementById('f-category').value.trim();
     const password =document.getElementById('f-password').value;
     const description=document.getElementById('f-desc').value.trim();
@@ -490,17 +571,17 @@ async function submitAdd(){
 
     // 衝突偵測（前端屐選，後端 GAS 也會再檢查一次）
     const conflict=events.find(e=>{
-      if(e.date!==date||e.location!==location)return false;
+      if(e.date!==date)return false;
       return t2m(startTime)<t2m(e.endTime)&&t2m(endTime)>t2m(e.startTime);
     });
     if(conflict){
       document.getElementById('conflict-msg').textContent=
-        `衝突！「${conflict.location}」 ${conflict.startTime}–${conflict.endTime} 已有「${conflict.title}」`;
+        `衝突！${conflict.startTime}–${conflict.endTime} 已有「${conflict.title}」${conflict.location ? ' (於 ' + conflict.location + ')' : ''}`;
       document.getElementById('conflict-box').style.display='flex';
       btn.disabled=false;btn.textContent='確認新增';return;
     }
 
-    const res=await gasCall('add',{title,date,startTime,endTime,location,organizer,category,password,description,catBg,catTx});
+    const res=await gasCall('add',{title,date,startTime,endTime,location,organizer,category,password,description,catBg,catTx,participants});
     if(res.conflict){
       document.getElementById('conflict-msg').textContent=res.error;
       document.getElementById('conflict-box').style.display='flex';
@@ -517,9 +598,13 @@ async function submitAdd(){
   btn.disabled=false;btn.textContent='確認新增';
 }
 function clearAddForm(){
-  ['f-title','f-date','f-start','f-end','f-location','f-organizer','f-category','f-password','f-desc'].forEach(id=>{
+  ['f-title','f-date','f-start','f-end','f-location','f-location-other','f-organizer','f-organizer-other','f-category','f-password','f-desc','f-participants-other'].forEach(id=>{
     const el=document.getElementById(id);el.value='';el.classList.remove('err');
   });
+  document.querySelectorAll('#f-participants-group input[type="checkbox"]').forEach(cb => cb.checked = false);
+  toggleOther('location');
+  toggleOther('organizer');
+  toggleOther('participants');
   const bgInput = document.getElementById('f-cat-bg');
   const txInput = document.getElementById('f-cat-tx');
   if(bgInput){ bgInput.value = '#dbeafe'; delete bgInput.dataset.userPicked; }
