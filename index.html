@@ -184,8 +184,28 @@
           </select>
           <input type="text" id="f-location-other" placeholder="請輸入地點名稱" maxlength="60" style="display:none; margin-top:8px;">
         </div>
-        <div class="form-group"><label>開始時間 <span class="req">*</span></label><input type="time" id="f-start"></div>
-        <div class="form-group"><label>結束時間 <span class="req">*</span></label><input type="time" id="f-end"></div>
+        <div class="form-group full">
+          <label>開會時間 <span class="req">*</span></label>
+          <div class="checkbox-group" id="f-periods-group">
+            <label class="cb-label"><input type="checkbox" value="08:00-08:20"> 朝會 (08:00-08:20)</label>
+            <label class="cb-label"><input type="checkbox" value="08:30-09:15"> 第1節 (08:30-09:15)</label>
+            <label class="cb-label"><input type="checkbox" value="09:25-10:10"> 第2節 (09:25-10:10)</label>
+            <label class="cb-label"><input type="checkbox" value="10:20-11:05"> 第3節 (10:20-11:05)</label>
+            <label class="cb-label"><input type="checkbox" value="11:15-12:00"> 第4節 (11:15-12:00)</label>
+            <label class="cb-label"><input type="checkbox" value="12:00-13:05"> 午休 (12:00-13:05)</label>
+            <label class="cb-label"><input type="checkbox" value="13:10-13:55"> 第5節 (13:10-13:55)</label>
+            <label class="cb-label"><input type="checkbox" value="14:05-14:50"> 第6節 (14:05-14:50)</label>
+            <label class="cb-label"><input type="checkbox" value="15:00-15:45"> 第7節 (15:00-15:45)</label>
+            <label class="cb-label"><input type="checkbox" value="15:55-16:40"> 第8節 (15:55-16:40)</label>
+            <label class="cb-label"><input type="checkbox" value="custom" onchange="toggleOther('time')"> 自訂時間</label>
+          </div>
+          <div id="f-time-custom-wrap" style="display:none; margin-top:8px;">
+            <div style="display:flex; gap:10px;">
+              <div class="form-group" style="flex:1"><label>開始時間</label><input type="time" id="f-start"></div>
+              <div class="form-group" style="flex:1"><label>結束時間</label><input type="time" id="f-end"></div>
+            </div>
+          </div>
+        </div>
         <div class="form-group full"><label>申請單位 (主辦單位) <span class="req">*</span></label>
           <select id="f-organizer" onchange="toggleOther('organizer')">
             <option value="">請選擇單位...</option>
@@ -325,6 +345,9 @@ function toggleOther(field){
   } else if(field === 'participants'){
     const cb = document.querySelector('#f-participants-group input[value="其他"]');
     document.getElementById('f-participants-other').style.display = cb && cb.checked ? 'block' : 'none';
+  } else if(field === 'time'){
+    const cb = document.querySelector('#f-periods-group input[value="custom"]');
+    document.getElementById('f-time-custom-wrap').style.display = cb && cb.checked ? 'block' : 'none';
   }
 }
 
@@ -522,10 +545,41 @@ function openAddModal(){
   openModal('modal-add');
 }
 async function submitAdd(){
-  const ids=['f-title','f-date','f-start','f-end','f-password'];
+  const ids=['f-title','f-date','f-password'];
   let ok=true;
   ids.forEach(id=>{const el=document.getElementById(id);el.classList.remove('err');if(!el.value.trim()){el.classList.add('err');ok=false;}});
   
+  let startTime = '';
+  let endTime = '';
+  let isCustomTime = false;
+  document.querySelectorAll('#f-periods-group input[type="checkbox"]:checked').forEach(cb => {
+    if (cb.value === 'custom') isCustomTime = true;
+    else {
+      const [s, e] = cb.value.split('-');
+      if (!startTime || s < startTime) startTime = s;
+      if (!endTime || e > endTime) endTime = e;
+    }
+  });
+
+  const fStartEl = document.getElementById('f-start');
+  const fEndEl = document.getElementById('f-end');
+  fStartEl.classList.remove('err');
+  fEndEl.classList.remove('err');
+
+  if (isCustomTime) {
+    if (!fStartEl.value) { fStartEl.classList.add('err'); ok = false; }
+    if (!fEndEl.value) { fEndEl.classList.add('err'); ok = false; }
+    if (fStartEl.value && (!startTime || fStartEl.value < startTime)) startTime = fStartEl.value;
+    if (fEndEl.value && (!endTime || fEndEl.value > endTime)) endTime = fEndEl.value;
+  }
+
+  const periodsWrap = document.getElementById('f-periods-group');
+  periodsWrap.style.borderColor = 'var(--border)';
+  if (!startTime || !endTime) {
+    periodsWrap.style.borderColor = 'var(--danger)';
+    ok = false;
+  }
+
   let locVal = document.getElementById('f-location').value;
   let locEl = locVal === '其他' ? document.getElementById('f-location-other') : document.getElementById('f-location');
   locEl.classList.remove('err');
@@ -537,17 +591,17 @@ async function submitAdd(){
   if(!orgEl.value.trim()) { orgEl.classList.add('err'); ok=false; }
 
   if(!ok){toast('請填寫所有必填欄位（標有*者）','warning');return;}
-  if(t2m(document.getElementById('f-end').value)<=t2m(document.getElementById('f-start').value)){
+  if(t2m(endTime) <= t2m(startTime)){
     toast('結束時間必須晚於開始時間','warning');
-    document.getElementById('f-end').classList.add('err');return;
+    periodsWrap.style.borderColor = 'var(--danger)';
+    return;
   }
   const btn=document.getElementById('btn-add-submit');
   btn.disabled=true;btn.textContent='送出中...';
   try{
     const title    =document.getElementById('f-title').value.trim();
     const date     =document.getElementById('f-date').value;
-    const startTime=document.getElementById('f-start').value;
-    const endTime  =document.getElementById('f-end').value;
+    // startTime and endTime already resolved above
     const location =locEl.value.trim();
     const organizer=orgEl.value.trim();
 
@@ -602,9 +656,12 @@ function clearAddForm(){
     const el=document.getElementById(id);el.value='';el.classList.remove('err');
   });
   document.querySelectorAll('#f-participants-group input[type="checkbox"]').forEach(cb => cb.checked = false);
+  document.querySelectorAll('#f-periods-group input[type="checkbox"]').forEach(cb => cb.checked = false);
+  document.getElementById('f-periods-group').style.borderColor = 'var(--border)';
   toggleOther('location');
   toggleOther('organizer');
   toggleOther('participants');
+  toggleOther('time');
   const bgInput = document.getElementById('f-cat-bg');
   const txInput = document.getElementById('f-cat-tx');
   if(bgInput){ bgInput.value = '#dbeafe'; delete bgInput.dataset.userPicked; }
