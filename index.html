@@ -163,8 +163,9 @@
 <!-- 新增 Modal -->
 <div class="modal-overlay" id="modal-add">
   <div class="modal">
-    <div class="modal-header"><h2>&#128197; 新增會議 / 活動</h2><button class="modal-close" onclick="closeModal('modal-add')">&#10005;</button></div>
+    <div class="modal-header"><h2 id="modal-add-title">&#128197; 新增會議 / 活動</h2><button class="modal-close" onclick="closeModal('modal-add')">&#10005;</button></div>
     <div class="modal-body">
+      <input type="hidden" id="f-id" value="">
       <div class="conflict-box" id="conflict-box">&#9888;&#65039;&nbsp;<span id="conflict-msg"></span></div>
       <div class="form-row">
         <div class="form-group full"><label>標題 <span class="req">*</span></label><input type="text" id="f-title" placeholder="會議或活動名稱" maxlength="100"></div>
